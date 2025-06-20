@@ -14,13 +14,13 @@
 <body>
   <div id="container">
     <div id="info"></div>
-    <canvas id="canvas" width="800" height="600"></canvas>
+    <canvas id="canvas" width="800" height="800"></canvas>
     <canvas id="networkCanvas" width="200" height="200"></canvas>
   </div>
   <script>
-    const WIDTH = 800, HEIGHT = 600;
+    const WIDTH = 800, HEIGHT = 800;
     const FOOD_COUNT = 20, FOOD_RADIUS = 5;
-    const BOID_RADIUS = 12, BOID_MASS = 1;
+    const BOID_RADIUS = 12, BOID_MASS = 10;
     const DAMPING = 0.99;
     const MAX_SENSOR_RANGE = 200;
     const INITIAL_LIFESPAN = 1000, LIFESPAN_DECAY = 1, FOOD_LIFESPAN_GAIN = 200;
@@ -140,9 +140,8 @@
           ctx.beginPath(); ctx.moveTo(0, 0);
           ctx.arc(0, 0, MAX_SENSOR_RANGE, -SENSOR_FOV / 2, SENSOR_FOV / 2);
           ctx.closePath();
-          ctx.strokeStyle = `rgba(100,200,100,${val * 0.6})`;
-          ctx.lineWidth = 2;
-          ctx.stroke();
+          ctx.fillStyle = `rgba(100,200,100,${val * 0.3})`;
+          ctx.fill();
           ctx.restore();
         });
         ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.rotate(this.angle);

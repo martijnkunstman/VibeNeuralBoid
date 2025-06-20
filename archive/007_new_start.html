@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boid with Neural Network</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #222; }
+    #network { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <canvas id="network" width="300" height="300"></canvas>
+
+  <!-- Synaptic.js for NN -->
+  <script src="https://unpkg.com/synaptic/dist/synaptic.min.js"></script>
+  <script>
+  // env settings
+  const FOOD_COUNT = 100;
+  const POISON_COUNT = 50;
+  const WIDTH = window.innerWidth;
+  const HEIGHT = window.innerHeight;
+  
+  const canvas = document.getElementById('canvas');
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const ctx = canvas.getContext('2d');
+
+  // Boid class
+  class Boid {
+    constructor(x, y) {
+      this.pos = { x, y };
+      this.vel = { x: Math.random()*2-1, y: Math.random()*2-1 };
+      this.health = 1;
+      this.sensors = [0,0,0];
+      // NN: 3 inputs (sensors), 5 hidden, 2 outputs (rotation, acceleration)
+      this.brain = new synaptic.Architect.Perceptron(3, 5, 2);
+    }
+    update(food, poison) {
+      this.look(food, poison);
+      // forward through NN
+      const outputs = this.brain.activate(this.sensors);
+      const steer = (outputs[0]-0.5) * 0.2;
+      const accel = (outputs[1]-0.5) * 0.2;
+      // rotate velocity vector
+      const angle = Math.atan2(this.vel.y, this.vel.x) + steer;
+      const mag = Math.hypot(this.vel.x, this.vel.y) + accel;
+      this.vel.x = Math.cos(angle)*mag;
+      this.vel.y = Math.sin(angle)*mag;
+      // move
+      this.pos.x += this.vel.x;
+      this.pos.y += this.vel.y;
+      // wraparound
+      if(this.pos.x<0) this.pos.x=WIDTH;
+      if(this.pos.x>WIDTH) this.pos.x=0;
+      if(this.pos.y<0) this.pos.y=HEIGHT;
+      if(this.pos.y>HEIGHT) this.pos.y=0;
+      // health decay / eat
+      this.health -= 0.005;
+      for(let i=food.length-1;i>=0;i--){ if(dist(this.pos, food[i])<10){ this.health+=0.3; food.splice(i,1);} }
+      for(let i=poison.length-1;i>=0;i--){ if(dist(this.pos, poison[i])<10){ this.health-=0.7; poison.splice(i,1);} }
+    }
+    look(food, poison) {
+      // three rays - left, center, right
+      const angles = [-Math.PI/4, 0, Math.PI/4];
+      this.sensors = angles.map(a => {
+        const dir = { x: Math.cos(a+this.heading()), y: Math.sin(a+this.heading()) };
+        return this.cast(dir, food, poison);
+      });
+    }
+    heading() { return Math.atan2(this.vel.y, this.vel.x); }
+    cast(dir, food, poison) {
+      let record = 100;
+      [...food, ...poison].forEach(p => {
+        const pVec = { x: p.x - this.pos.x, y: p.y - this.pos.y };
+        const d = Math.hypot(pVec.x, pVec.y);
+        const angleDiff = angleBetween(dir, pVec);
+        if(angleDiff < Math.PI/30 && d < record) record = d;
+      });
+      return record/100;
+    }
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.pos.x, this.pos.y);
+      ctx.rotate(this.heading());
+      ctx.beginPath();
+      ctx.moveTo(10, 0);
+      ctx.lineTo(-10, 5);
+      ctx.lineTo(-10, -5);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(0,255,0,${this.health})`;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+  function angleBetween(a,b){ return Math.acos((a.x*b.x + a.y*b.y)/(Math.hypot(a.x,a.y)*Math.hypot(b.x,b.y))); }
+
+  // setup world
+  let food = [], poison = [];
+  for(let i=0;i<FOOD_COUNT;i++) food.push({ x: Math.random()*WIDTH, y: Math.random()*HEIGHT });
+  for(let i=0;i<POISON_COUNT;i++) poison.push({ x: Math.random()*WIDTH, y: Math.random()*HEIGHT });
+  let boid = new Boid(WIDTH/2, HEIGHT/2);
+
+  // render network
+  const netCanvas = document.getElementById('network');
+  const netCtx = netCanvas.getContext('2d');
+  function drawNetwork(network) {
+    netCtx.clearRect(0,0,300,300);
+    const json = network.toJSON();
+    const layers = {};
+    // group neurons by layer
+    json.neurons.forEach(n=>{
+      layers[n.layer] = layers[n.layer]||[];
+      layers[n.layer].push(n);
+    });
+    const layerKeys = Object.keys(layers).map(Number).sort((a,b)=>a-b);
+    // draw nodes
+    layerKeys.forEach((layer,i)=>{
+      const nodes = layers[layer];
+      nodes.forEach((n,j)=>{
+        const x = (i+1)*300/(layerKeys.length+1);
+        const y = (j+1)*300/(nodes.length+1);
+        netCtx.beginPath(); netCtx.arc(x,y,5,0,2*Math.PI);
+        netCtx.fillStyle='white'; netCtx.fill();
+        n._pos = {x,y};
+      });
+    });
+    // draw connections
+    json.connections.forEach(c=>{
+      const from = json.neurons.find(n=>n.id===c.from).layer;
+      const to   = json.neurons.find(n=>n.id===c.to).layer;
+      const nFrom = json.neurons.find(n=>n.id===c.from)._pos;
+      const nTo   = json.neurons.find(n=>n.id===c.to)._pos;
+      netCtx.beginPath(); netCtx.moveTo(nFrom.x,nFrom.y); netCtx.lineTo(nTo.x,nTo.y);
+      netCtx.strokeStyle = c.weight>0? 'rgba(0,255,0,'+Math.abs(c.weight)+')':'rgba(255,0,0,'+Math.abs(c.weight)+')';
+      netCtx.lineWidth = Math.abs(c.weight)*2;
+      netCtx.stroke();
+    });
+  }
+
+  // main loop
+  function animate() {
+    requestAnimationFrame(animate);
+    ctx.clearRect(0,0,WIDTH,HEIGHT);
+    // draw food & poison
+    food.forEach(f=>{ ctx.fillStyle='green'; ctx.fillRect(f.x-3,f.y-3,6,6); });
+    poison.forEach(p=>{ ctx.fillStyle='red'; ctx.fillRect(p.x-3,p.y-3,6,6); });
+    // update & draw boid
+    boid.update(food, poison);
+    boid.draw(ctx);
+    drawNetwork(boid.brain);
+  }
+  animate();
+  </script>
+</body>
+</html>

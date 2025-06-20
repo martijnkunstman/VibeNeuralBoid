@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Boid Neuroevolution with 2-Layer Network</title>
+  <style>
+    body { display: flex; justify-content: center; align-items: flex-start; background: #f9f9f9; font-family: sans-serif; margin: 0; padding: 20px; }
+    #controls { text-align: center; margin-bottom: 10px; width: 100%; }
+    #simContainer { display: flex; }
+    canvas { background: #ffffff; display: block; margin: 0 10px; border: 1px solid #ccc; }
+    #canvas { width: 800px; height: 800px; }
+    #netCanvas { width: 400px; height: 800px; }
+    button { padding: 8px 16px; font-size: 14px; border-radius: 4px; border: none; background: #007bff; color: white; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <div>
+    <div id="controls">
+      <button id="startEvolution">Start Evolution</button>
+      <span>Generation: <span id="gen">0</span></span>
+      <span>Best Lifespan: <span id="best">0</span></span>
+    </div>
+    <div id="simContainer">
+      <canvas id="canvas" width="800" height="800"></canvas>
+      <canvas id="netCanvas" width="400" height="800"></canvas>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const netCanvas = document.getElementById('netCanvas');
+    const nctx = netCanvas.getContext('2d');
+    const width = canvas.width, height = canvas.height;
+
+    // Boid & Item classes
+    class Boid {
+      constructor() {
+        this.pos = { x: width/2, y: height/2 };
+        this.vel = { x: 0, y: 0 };
+        this.acc = { x: 0, y: 0 };
+        this.angle = 0;
+        this.radius = 20;
+        this.damping = 0.8;
+        this.lifespan = 1000;
+      }
+      applyForce(f) { this.acc.x += f.x; this.acc.y += f.y; }
+      update() {
+        this.vel.x += this.acc.x;
+        this.vel.y += this.acc.y;
+        this.vel.x *= this.damping;
+        this.vel.y *= this.damping;
+        const speed = Math.hypot(this.vel.x, this.vel.y), maxSpeed = 2;
+        if (speed > maxSpeed) { this.vel.x = (this.vel.x/speed)*maxSpeed; this.vel.y = (this.vel.y/speed)*maxSpeed; }
+        this.pos.x = (this.pos.x + this.vel.x + width) % width;
+        this.pos.y = (this.pos.y + this.vel.y + height) % height;
+        this.acc.x = 0; this.acc.y = 0;
+        this.lifespan--;
+      }
+      draw() {
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        ctx.rotate(this.angle);
+        ctx.beginPath();
+        ctx.moveTo(this.radius,0);
+        ctx.lineTo(-this.radius,this.radius/2);
+        ctx.lineTo(-this.radius,-this.radius/2);
+        ctx.closePath();
+        ctx.fillStyle='blue'; ctx.fill();
+        ctx.restore();
+      }
+    }
+    class Item {
+      constructor(x,y,type){ this.pos={x,y}; this.radius=5; this.type=type; }
+      draw(){ ctx.beginPath(); ctx.arc(this.pos.x,this.pos.y,this.radius,0,2*Math.PI); ctx.fillStyle=this.type==='food'?'green':'red'; ctx.fill(); }
+    }
+
+    // NN & GA parameters
+    const SENSOR_COUNT = 5;
+    const INPUT_SIZE = SENSOR_COUNT;
+    const HIDDEN_SIZE = 5;
+    const OUTPUT_SIZE = 3;
+    const POP_SIZE = 50;
+    const ELITE = 5;
+    const MUT_RATE = 0.1;
+    const MAX_STEPS = 2000;
+
+    // Genome representation: two layers
+    function createNetwork() {
+      const w1 = [], b1 = [], w2 = [], b2 = [];
+      // input -> hidden
+      for(let i=0; i<HIDDEN_SIZE*INPUT_SIZE; i++) w1.push(Math.random()*2-1);
+      for(let i=0; i<HIDDEN_SIZE; i++) b1.push(Math.random()*2-1);
+      // hidden -> output
+      for(let i=0; i<OUTPUT_SIZE*HIDDEN_SIZE; i++) w2.push(Math.random()*2-1);
+      for(let i=0; i<OUTPUT_SIZE; i++) b2.push(Math.random()*2-1);
+      return {w1,b1,w2,b2,fitness:0};
+    }
+
+    // Forward pass
+    function decide(net, inputs) {
+      // hidden layer
+      const hidden = [];
+      for(let j=0; j<HIDDEN_SIZE; j++){
+        let sum = net.b1[j];
+        for(let i=0; i<INPUT_SIZE; i++) sum += net.w1[j*INPUT_SIZE + i]*inputs[i];
+        hidden[j] = Math.tanh(sum);
+      }
+      // output layer
+      const out = [];
+      for(let k=0; k<OUTPUT_SIZE; k++){
+        let sum = net.b2[k];
+        for(let j=0; j<HIDDEN_SIZE; j++) sum += net.w2[k*HIDDEN_SIZE + j]*hidden[j];
+        out[k] = 1/(1+Math.exp(-sum)); // logistic activation
+      }
+      return out; // [left, right, forward]
+    }
+
+    // Genetic operators
+    function crossover(a,b){
+      const child = {w1:[],b1:[],w2:[],b2:[],fitness:0};
+      const cut1 = Math.floor(Math.random()*a.w1.length);
+      for(let i=0;i<a.w1.length;i++) child.w1[i] = i<cut1?a.w1[i]:b.w1[i];
+      const cutb1 = Math.floor(Math.random()*a.b1.length);
+      for(let i=0;i<a.b1.length;i++) child.b1[i] = i<cutb1?a.b1[i]:b.b1[i];
+      const cut2 = Math.floor(Math.random()*a.w2.length);
+      for(let i=0;i<a.w2.length;i++) child.w2[i] = i<cut2?a.w2[i]:b.w2[i];
+      const cutb2 = Math.floor(Math.random()*a.b2.length);
+      for(let i=0;i<a.b2.length;i++) child.b2[i] = i<cutb2?a.b2[i]:b.b2[i];
+      return child;
+    }
+    function mutate(net){
+      for(let i=0;i<net.w1.length;i++) if(Math.random()<MUT_RATE) net.w1[i] += Math.random()*0.4-0.2;
+      for(let i=0;i<net.b1.length;i++) if(Math.random()<MUT_RATE) net.b1[i] += Math.random()*0.4-0.2;
+      for(let i=0;i<net.w2.length;i++) if(Math.random()<MUT_RATE) net.w2[i] += Math.random()*0.4-0.2;
+      for(let i=0;i<net.b2.length;i++) if(Math.random()<MUT_RATE) net.b2[i] += Math.random()*0.4-0.2;
+    }
+    function tournament(){
+      const i1 = Math.floor(Math.random()*networks.length);
+      const i2 = Math.floor(Math.random()*networks.length);
+      return networks[i1].fitness>networks[i2].fitness?networks[i1]:networks[i2];
+    }
+
+    // Sensor inputs: single value [-1,1]
+    function getInputs(boid, items) {
+      const inputs = [];
+      const fov = Math.PI/2;
+      const segment = fov/SENSOR_COUNT;
+      const range = boid.radius*10;
+      for(let s=0;s<SENSOR_COUNT;s++){
+        let minDist=Infinity, type=0;
+        items.forEach(it=>{
+          const dx=it.pos.x-boid.pos.x, dy=it.pos.y-boid.pos.y;
+          const dist=Math.hypot(dx,dy);
+          if(dist<range){
+            let ang=Math.atan2(dy,dx)-boid.angle;
+            ang=((ang+Math.PI)%(2*Math.PI))-Math.PI;
+            const lower=-fov/2 + s*segment;
+            const upper=lower+segment;
+            if(ang>=lower && ang<=upper && dist<minDist){ minDist=dist; type=it.type==='food'?1:-1; }
+          }
+        });
+        if(minDist===Infinity) inputs.push(0);
+        else inputs.push(type*(1-minDist/range));
+      }
+      return inputs;
+    }
+
+    // Evolutionary loop
+    let networks = Array.from({length:POP_SIZE}, createNetwork);
+    let generation=0, bestFit=0;
+    function evaluate(){
+      networks.forEach(net=>{
+        const b=new Boid();
+        const items=[];
+        spawnItems(15,'food',items);
+        spawnItems(15,'poison',items);
+        let steps=0;
+        while(b.lifespan>0 && steps<MAX_STEPS){
+          const inp=getInputs(b,items);
+          const [left,right,forward]=decide(net,inp);
+          b.angle += (right-left)*0.1;
+          if(forward>0.5) b.applyForce({x:Math.cos(b.angle)*0.3, y:Math.sin(b.angle)*0.3});
+          b.update();
+          // collision
+          for(let i=items.length-1;i>=0;i--){
+            const it=items[i];
+            const dx=b.pos.x-it.pos.x, dy=b.pos.y-it.pos.y;
+            if(Math.hypot(dx,dy)<b.radius+it.radius){
+              items.splice(i,1);
+              if(it.type==='food'){ b.lifespan+=1000; items.push(new Item(Math.random()*width,Math.random()*height,'food')); }
+              else { b.lifespan-=5000; items.push(new Item(Math.random()*width,Math.random()*height,'poison')); }
+            }
+          }
+          steps++;
+        }
+        net.fitness = b.lifespan;
+      });
+      networks.sort((a,b)=>b.fitness-b.fitness);
+      bestFit = networks[0].fitness;
+      document.getElementById('best').innerText = Math.max(bestFit,0);
+      document.getElementById('gen').innerText = generation;
+    }
+    function nextGen(){ evaluate(); const newPop=networks.slice(0,ELITE).map(n=>({w1:[...n.w1],b1:[...n.b1],w2:[...n.w2],b2:[...n.b2],fitness:0})); while(newPop.length<POP_SIZE){ const p1=tournament(), p2=tournament(); const c=crossover(p1,p2); mutate(c); newPop.push(c);} networks=newPop; generation++; }
+    function spawnItems(count,type,arr){ for(let i=0;i<count;i++) arr.push(new Item(Math.random()*width,Math.random()*height,type)); }
+
+    // Draw best agent
+    function drawBest(){ ctx.clearRect(0,0,width,height); const b=new Boid(), items=[]; spawnItems(15,'food',items); spawnItems(15,'poison',items); let steps=0; while(b.lifespan>0&&steps<MAX_STEPS){ const inp=getInputs(b,items); const [l,r,f]=decide(networks[0],inp); b.angle+=(r-l)*0.1; if(f>0.5) b.applyForce({x:Math.cos(b.angle)*0.3,y:Math.sin(b.angle)*0.3}); b.update(); steps++; } (function loop(){ ctx.clearRect(0,0,width,height); b.draw(); items.forEach(it=>it.draw()); ctx.fillStyle='black'; ctx.font='16px sans-serif'; ctx.fillText('Life: '+b.lifespan,10,20); if(b.lifespan>0) requestAnimationFrame(loop); })(); }
+
+    // Visualize network
+    function drawNetwork(){ nctx.clearRect(0,0,netCanvas.width,netCanvas.height); const margin=40;
+      // input nodes
+      const inYStep=(netCanvas.height-2*margin)/(INPUT_SIZE-1);
+      const inCoords=[];
+      nctx.font='12px sans-serif';
+      for(let i=0;i<INPUT_SIZE;i++){ const y=margin+i*inYStep; inCoords.push({x:margin,y}); nctx.beginPath(); nctx.arc(margin,y,6,0,2*Math.PI); nctx.fillStyle='#444'; nctx.fill(); nctx.fillText('S'+i,margin-20,y+4); }
+      // hidden nodes
+      const hidX=netCanvas.width/2;
+      const hidYStep=(netCanvas.height-2*margin)/(HIDDEN_SIZE-1);
+      const hidCoords=[];
+      for(let j=0;j<HIDDEN_SIZE;j++){ const y=margin+j*hidYStep; hidCoords.push({x:hidX,y}); nctx.beginPath(); nctx.arc(hidX,y,8,0,2*Math.PI); nctx.fillStyle='#555'; nctx.fill(); nctx.fillText('h'+j,hidX-5,y+4); }
+      // output nodes
+      const outX=netCanvas.width-margin;
+      const outYStep=netCanvas.height/(OUTPUT_SIZE+1);
+      const outCoords=[];
+      ['Left','Right','Forward'].forEach((label,k)=>{ const y=outYStep*(k+1); outCoords.push({x:outX,y}); nctx.beginPath(); nctx.arc(outX,y,10,0,2*Math.PI); nctx.fillStyle='#222'; nctx.fill(); nctx.fillText(label,outX+12,y+4); });
+      // draw connections: input->hidden
+      networks[0].w1.forEach((w,i)=>{ const j=Math.floor(i/INPUT_SIZE), ii=i%INPUT_SIZE; const from=inCoords[ii], to=hidCoords[j]; nctx.lineWidth=1+Math.abs(w)*2; nctx.strokeStyle=w>0?'#0a0':'#a00'; nctx.beginPath(); nctx.moveTo(from.x,from.y); nctx.lineTo(to.x,to.y); nctx.stroke(); });
+      // hidden->output
+      networks[0].w2.forEach((w,i)=>{ const k=Math.floor(i/HIDDEN_SIZE), jj=i%HIDDEN_SIZE; const from=hidCoords[jj], to=outCoords[k]; nctx.lineWidth=1+Math.abs(w)*2; nctx.strokeStyle=w>0?'#0a0':'#a00'; nctx.beginPath(); nctx.moveTo(from.x,from.y); nctx.lineTo(to.x,to.y); nctx.stroke(); });
+      // biases
+      hidCoords.forEach((c,j)=>{ nctx.fillStyle='#000'; nctx.fillText('b='+networks[0].b1[j].toFixed(2),c.x-20,c.y+16); });
+      outCoords.forEach((c,k)=>{ nctx.fillStyle='#000'; nctx.fillText('b='+networks[0].b2[k].toFixed(2),c.x-20,c.y+20); });
+    }
+
+    document.getElementById('startEvolution').addEventListener('click',()=>{
+      setInterval(()=>{ nextGen(); drawBest(); drawNetwork(); },100);
+    });
+  </script>
+</body>
+</html>

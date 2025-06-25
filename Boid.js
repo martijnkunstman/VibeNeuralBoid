@@ -89,15 +89,63 @@ export class Boid {
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.orientation);
-        // body
+
+        // Draw boid as a circle
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, 2 * Math.PI);
         ctx.fillStyle = '#0f0';
-        ctx.fillRect(-20, -10, 40, 20);
-        // wheels
-        ctx.fillStyle = '#555';
-        ctx.fillRect(-15, -12, 8, 4);
-        ctx.fillRect(-15, 8, 8, 4);
-        ctx.fillRect(7, -12, 8, 4);
-        ctx.fillRect(7, 8, 8, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#080';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw velocity as a line
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.strokeStyle = '#00f';
+        ctx.lineWidth = 2;
+        ctx.lineTo(this.speed * 0.2, 0); // scale velocity for visibility
+        ctx.stroke();
+
+        // Draw steering direction as a line
+        const steerLineLength = this.speed * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.strokeStyle = '#f0f';
+        ctx.lineWidth = 2;
+        ctx.lineTo(steerLineLength * Math.cos(this.steer), steerLineLength * Math.sin(this.steer));
+        ctx.stroke();    
+
+        // Visualize input around boid
+        // W (forward) - top
+        if (this.keys['w']) {
+            ctx.beginPath();
+            ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ff0';
+            ctx.fill();
+        }
+        // S (brake) - bottom
+        if (this.keys['s']) {
+            ctx.beginPath();
+            ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f00';
+            ctx.fill();
+        }
+        // A (left) - left
+        if (this.keys['a']) {
+            ctx.beginPath();
+            ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#0ff';
+            ctx.fill();
+        }
+        // D (right) - right
+        if (this.keys['d']) {
+            ctx.beginPath();
+            ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f0f';
+            ctx.fill();
+        }
+
         ctx.restore();
     }
 }

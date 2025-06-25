@@ -7,6 +7,7 @@ export class Boid {
         this.orientation = 0;    // radians
         this.speed = 0;          // px/sec'
         this.radius = radius;
+        this.lifespan = 5000;     // lifespan in seconds
 
         // configurable properties
         this.wheelBase = 40;        // distance between axles
@@ -30,7 +31,18 @@ export class Boid {
         });
     }
 
+    eat(food) {
+        this.lifespan += food.nutrition;
+    }
+
     update(dt) {
+
+        this.lifespan -= 1;
+
+        if (this.lifespan <= 0) {
+            this.dead = true;
+            return;
+        }
         // handle acceleration/braking
         if (this.keys['w']) {
             this.speed += this.engineForce * dt;
@@ -114,7 +126,7 @@ export class Boid {
         ctx.strokeStyle = '#f0f';
         ctx.lineWidth = 2;
         ctx.lineTo(steerLineLength * Math.cos(this.steer), steerLineLength * Math.sin(this.steer));
-        ctx.stroke();    
+        ctx.stroke();
 
         // Visualize input around boid
         // W (forward) - top
@@ -145,6 +157,19 @@ export class Boid {
             ctx.fillStyle = '#f0f';
             ctx.fill();
         }
+
+        // Show lifespan as a number, horizontally centered above the circle, not rotated
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to avoid rotation/translation
+        ctx.fillStyle = '#000';
+        ctx.font = '12px Arial';
+        const text = Math.round(this.lifespan).toString();
+        const textWidth = ctx.measureText(text).width;
+        // Calculate screen position of text
+        const screenX = this.position.x - textWidth / 2;
+        const screenY = this.position.y - this.radius - 14;
+        ctx.fillText(text, screenX, screenY);
+        ctx.restore();
 
         ctx.restore();
     }

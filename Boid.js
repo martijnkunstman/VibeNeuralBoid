@@ -1,7 +1,7 @@
 import { Vector } from './Vector.js';
 // --- Boid Class 
 export class Boid {
-    constructor(x, y, radius = 10) {
+    constructor(x, y, radius = 15) {
         // state
         this.position = new Vector(x, y);
         this.orientation = 0;    // radians

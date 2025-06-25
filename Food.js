@@ -1,8 +1,10 @@
+import { Vector } from './Vector.js';
+
 export class Food {
   constructor(x, y, nutrition = 5) {
     this.position = new Vector(x, y);
     this.nutrition = nutrition;        // how much life it restores
-    this.radius = 5;
+    this.radius = 15;
   }
 
   draw(ctx) {

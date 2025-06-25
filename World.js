@@ -7,6 +7,7 @@ export class World {
     this.ctx = ctx;
     this.boids = [];
     this.foods = [];
+    this.spawnFood(10); // spawn initial food
   }
 
   spawnFood(count = 10) {
@@ -22,18 +23,27 @@ export class World {
     this.boids.push(boid);
   }
 
-  
-
   update(dt) {
-    this.boids.forEach(b => {
-      b.update(dt);
-      b.edges(this);
+
+
+
+    this.boids.forEach(boid => {
+       this.foods = this.foods.filter(food => {
+        if (boid.position.distance(food.position) < boid.radius + food.radius) {
+          boid.eat(food);
+          return false; // remove eaten food
+        }
+        return true;
+      });
+      boid.update(dt);
+      boid.edges(this);
     });
   }
 
   draw() {
     this.ctx.clearRect(0, 0, this.width, this.height);
-    this.foods.forEach(f => f.draw(ctx));
+    this.foods.forEach(f => f.draw(this.ctx));
     this.boids.forEach(b => b.draw(this.ctx));
   }
+
 }

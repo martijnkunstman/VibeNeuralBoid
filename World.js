@@ -24,11 +24,8 @@ export class World {
   }
 
   update(dt) {
-
-
-
     this.boids.forEach(boid => {
-       this.foods = this.foods.filter(food => {
+      this.foods = this.foods.filter(food => {
         if (boid.position.distance(food.position) < boid.radius + food.radius) {
           boid.eat(food);
           return false; // remove eaten food

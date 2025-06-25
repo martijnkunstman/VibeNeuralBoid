@@ -1,7 +1,7 @@
 import { Vector } from './Vector.js';
 
 export class Food {
-  constructor(x, y, nutrition = 5) {
+  constructor(x, y, nutrition = 100) {
     this.position = new Vector(x, y);
     this.nutrition = nutrition;        // how much life it restores
     this.radius = 15;

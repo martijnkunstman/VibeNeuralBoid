@@ -1,11 +1,12 @@
 import { Vector } from './Vector.js';
 // --- Vehicle Class (Kinematic Bicycle Model) ---
 export class Vehicle {
-    constructor(x, y) {
+    constructor(x, y, radius = 10) {
         // state
         this.position = new Vector(x, y);
         this.orientation = 0;    // radians
-        this.speed = 0;          // px/sec
+        this.speed = 0;          // px/sec'
+        this.radius = radius;
 
         // configurable properties
         this.wheelBase = 40;        // distance between axles
@@ -20,12 +21,12 @@ export class Vehicle {
         this.steerDirection = 0;    // directional input accumulator
 
         // input state
-        this.keys = {};
+        this.keys = { w: false, a: false, s: false, d: false };
         window.addEventListener('keydown', e => {
-            this.keys[e.key.toLowerCase()] = true;
+            const k = e.key.toLowerCase(); if (k in this.keys) this.keys[k] = true;
         });
         window.addEventListener('keyup', e => {
-            this.keys[e.key.toLowerCase()] = false;
+            const k = e.key.toLowerCase(); if (k in this.keys) this.keys[k] = false;
         });
     }
 
@@ -75,6 +76,13 @@ export class Vehicle {
         // move vehicle
         const velocity = Vector.fromAngle(this.orientation).mult(this.speed * dt);
         this.position.add(velocity);
+    }
+
+    edges(world) {
+        if (this.position.x < -this.radius) this.position.x = world.width + this.radius;
+        if (this.position.x > world.width + this.radius) this.position.x = -this.radius;
+        if (this.position.y < -this.radius) this.position.y = world.height + this.radius;
+        if (this.position.y > world.height + this.radius) this.position.y = -this.radius;
     }
 
     draw(ctx) {

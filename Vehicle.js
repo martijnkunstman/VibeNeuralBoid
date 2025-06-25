@@ -1,0 +1,95 @@
+import { Vector } from './Vector.js';
+// --- Vehicle Class (Kinematic Bicycle Model) ---
+export class Vehicle {
+    constructor(x, y) {
+        // state
+        this.position = new Vector(x, y);
+        this.orientation = 0;    // radians
+        this.speed = 0;          // px/sec
+
+        // configurable properties
+        this.wheelBase = 40;        // distance between axles
+        this.maxSteer = Math.PI / 4;  // max wheel angle
+        this.engineForce = 300;     // accel force
+        this.brakeForce = 400;      // braking force
+        this.drag = 0.02;           // linear drag coefficient
+        this.maxSpeed = 500;        // max forward speed
+
+        // steering state
+        this.steer = 0;             // current steering angle
+        this.steerDirection = 0;    // directional input accumulator
+
+        // input state
+        this.keys = {};
+        window.addEventListener('keydown', e => {
+            this.keys[e.key.toLowerCase()] = true;
+        });
+        window.addEventListener('keyup', e => {
+            this.keys[e.key.toLowerCase()] = false;
+        });
+    }
+
+    update(dt) {
+        // handle acceleration/braking
+        if (this.keys['w']) {
+            this.speed += this.engineForce * dt;
+        }
+        if (this.keys['s']) {
+            this.speed -= this.brakeForce * dt;
+        }
+
+        // apply drag
+        this.speed -= this.speed * this.drag;
+
+        // clamp speed
+        this.speed = Math.max(0, Math.min(this.speed, this.maxSpeed));
+
+        // steering input
+        if (this.keys['a']) this.steerDirection -= this.maxSteer / 10;
+        if (this.keys['d']) this.steerDirection += this.maxSteer / 10;
+
+        // clamp input accumulator
+        this.steerDirection = Math.max(-this.maxSteer, Math.min(this.steerDirection, this.maxSteer));
+
+        // damp if both pressed
+        if (this.keys['a'] && this.keys['d']) {
+            this.steerDirection *= 0.8;
+        }
+
+        // update steering angle
+        this.steer += this.steerDirection;
+        this.steer = Math.max(-this.maxSteer, Math.min(this.steer, this.maxSteer));
+
+        // gradual return to center when no input
+        this.steer *= 0.8;
+        if (!this.keys['a'] && !this.keys['d']) {
+            this.steerDirection = 0;
+        }
+
+        // update orientation based on kinematic bicycle model
+        if (this.speed > 0) {
+            const turnRate = (this.speed / this.wheelBase) * Math.tan(this.steer);
+            this.orientation += turnRate * dt;
+        }
+
+        // move vehicle
+        const velocity = Vector.fromAngle(this.orientation).mult(this.speed * dt);
+        this.position.add(velocity);
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.rotate(this.orientation);
+        // body
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(-20, -10, 40, 20);
+        // wheels
+        ctx.fillStyle = '#555';
+        ctx.fillRect(-15, -12, 8, 4);
+        ctx.fillRect(-15, 8, 8, 4);
+        ctx.fillRect(7, -12, 8, 4);
+        ctx.fillRect(7, 8, 8, 4);
+        ctx.restore();
+    }
+}

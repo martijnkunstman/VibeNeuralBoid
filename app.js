@@ -1,4 +1,4 @@
-import { Vehicle } from './Vehicle.js';
+import { Boid } from './Boid.js';
 import { World } from './World.js';
 
 // --- Setup ---
@@ -9,7 +9,7 @@ window.addEventListener('resize', resize);
 resize();
 
 const world = new World(canvas.width, canvas.height, ctx);
-const vehicle = new Vehicle(canvas.width / 2, canvas.height / 2);
+const vehicle = new Boid(canvas.width / 2, canvas.height / 2);
 world.addBoid(vehicle);
 
 // --- Animation loop ---
@@ -21,4 +21,5 @@ function animate(time) {
   world.draw();
   requestAnimationFrame(animate);
 }
+
 requestAnimationFrame(animate);

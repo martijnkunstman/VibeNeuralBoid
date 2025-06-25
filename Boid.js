@@ -1,6 +1,6 @@
 import { Vector } from './Vector.js';
-// --- Vehicle Class (Kinematic Bicycle Model) ---
-export class Vehicle {
+// --- Boid Class 
+export class Boid {
     constructor(x, y, radius = 10) {
         // state
         this.position = new Vector(x, y);
@@ -73,7 +73,7 @@ export class Vehicle {
             this.orientation += turnRate * dt;
         }
 
-        // move vehicle
+        // move boid
         const velocity = Vector.fromAngle(this.orientation).mult(this.speed * dt);
         this.position.add(velocity);
     }

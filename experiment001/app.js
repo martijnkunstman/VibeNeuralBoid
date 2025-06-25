@@ -1,4 +1,3 @@
-import { Boid } from './Boid.js';
 import { Vehicle } from './Vehicle.js';
 import { World } from './World.js';
 
@@ -10,9 +9,7 @@ window.addEventListener('resize', resize);
 resize();
 
 const world = new World(canvas.width, canvas.height, ctx);
-const boid = new Boid(canvas.width / 2, canvas.height / 2);
 const vehicle = new Vehicle(canvas.width / 2, canvas.height / 2);
-//world.addBoid(boid);
 world.addBoid(vehicle);
 
 // --- Animation loop ---

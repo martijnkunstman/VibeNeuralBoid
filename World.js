@@ -49,6 +49,7 @@ export class World {
   draw() {
     this.ctx.clearRect(0, 0, this.width, this.height);
     this.foods.forEach(f => f.draw(this.ctx));
+    
     this.boids.forEach(b => b.draw(this.ctx, this.foods, this.neuralCtx));
   }
 

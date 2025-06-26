@@ -2,11 +2,11 @@ import { Vector } from './Vector.js';
 
 // --- Sensor Configuration Constants ---
 // Total angular coverage of sensors (in radians)
-const SENSOR_TOTAL_ANGLE = Math.PI;  // 180° total coverage
+const SENSOR_TOTAL_ANGLE = Math.PI / 2;  // 90° total coverage
 // Angle between adjacent sensor rays (in radians)
 const SENSOR_ANGLE_STEP = Math.PI / 16;  // ~11.25° between sensors
 // Reach of each sensor ray (in pixels)
-const SENSOR_LENGTH = 200;
+const SENSOR_LENGTH = 150;
 
 // --- Boid Class ---
 export class Boid {
@@ -91,29 +91,66 @@ export class Boid {
         if (this.position.y > world.height + this.radius) this.position.y = -this.radius;
     }
 
-    // Draw sensor rays emanating from the front of the boid
-    drawSensors(ctx) {
+    /**
+     * Draw sensor rays, highlighting those that intersect food items.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Food[]} foods - array of food objects with position (Vector) and radius
+     */
+    drawSensors(ctx, foods = []) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-        ctx.lineWidth = 1;
 
         const rayCount = Math.floor(SENSOR_TOTAL_ANGLE / SENSOR_ANGLE_STEP) + 1;
         const startAngle = -SENSOR_TOTAL_ANGLE / 2;
         for (let i = 0; i < rayCount; i++) {
             const angle = startAngle + i * SENSOR_ANGLE_STEP;
+            // direction vector in local space
+            const dir = Vector.fromAngle(angle);
+
+            // test intersection with each food in world coords, converting to boid-local coords
+            let hit = false;
+            for (let food of foods) {
+                // vector from boid center to food in world coords
+                const toFoodWorld = food.position.copy().sub(this.position);
+                // rotate into boid-local coords
+                const toFoodLocal = toFoodWorld.copy().rotate(-this.orientation);
+                const proj = toFoodLocal.dot(dir);
+                if (proj > 0 && proj < SENSOR_LENGTH) {
+                    const perpDist = Math.abs(toFoodLocal.cross(dir));
+                    if (perpDist < food.radius) {
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+
+            // draw the ray
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(
                 SENSOR_LENGTH * Math.cos(angle),
                 SENSOR_LENGTH * Math.sin(angle)
             );
+            if (hit) {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 1)';
+                ctx.lineWidth = 3;
+            } else {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+            }
             ctx.stroke();
         }
 
         ctx.restore();
     }
 
-    draw(ctx) {
+    /**
+     * Draw the boid, including sensors.
+     * Make sure to pass in the world's foods array when calling this:
+     *   boid.draw(ctx, world.foods);
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Food[]} foods
+     */
+    draw(ctx, foods = []) {
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.orientation);
@@ -147,22 +184,14 @@ export class Boid {
         );
         ctx.stroke();
 
-        // Draw input indicators (W, A, S, D)
-        if (this.keys['w']) {
-            ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#ff0'; ctx.fill();
-        }
-        if (this.keys['s']) {
-            ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f00'; ctx.fill();
-        }
-        if (this.keys['a']) {
-            ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
-        }
-        if (this.keys['d']) {
-            ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f0f'; ctx.fill();
-        }
+        // Draw input indicators
+        if (this.keys['w']) { ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#ff0'; ctx.fill(); }
+        if (this.keys['s']) { ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#f00'; ctx.fill(); }
+        if (this.keys['a']) { ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); }
+        if (this.keys['d']) { ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2*Math.PI); ctx.fillStyle = '#f0f'; ctx.fill(); }
 
-        // Draw sensors on top of boid
-        this.drawSensors(ctx);
+        // Draw sensors on top, highlighting hits
+        this.drawSensors(ctx, foods);
 
         // Draw lifespan text unrotated
         ctx.save();
@@ -171,9 +200,9 @@ export class Boid {
         ctx.font = '12px Arial';
         const text = Math.round(this.lifespan).toString();
         const textWidth = ctx.measureText(text).width;
-        const screenX = this.position.x - textWidth / 2;
-        const screenY = this.position.y - this.radius - 14;
-        ctx.fillText(text, screenX, screenY);
+        const sx = this.position.x - textWidth / 2;
+        const sy = this.position.y - this.radius - 14;
+        ctx.fillText(text, sx, sy);
         ctx.restore();
 
         ctx.restore();

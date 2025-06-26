@@ -4,7 +4,7 @@ export class Food {
   constructor(x, y, nutrition = 100) {
     this.position = new Vector(x, y);
     this.nutrition = nutrition;        // how much life it restores
-    this.radius = 15;
+    this.radius = 25;
   }
 
   draw(ctx) {

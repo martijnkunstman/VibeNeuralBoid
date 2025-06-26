@@ -6,7 +6,7 @@ const SENSOR_TOTAL_ANGLE = Math.PI / 2;  // 90° total coverage
 // Angle between adjacent sensor rays (in radians)
 const SENSOR_ANGLE_STEP = Math.PI / 16;  // ~11.25° between sensors
 // Reach of each sensor ray (in pixels)
-const SENSOR_LENGTH = 150;
+const SENSOR_LENGTH = 500;
 
 // --- Boid Class ---
 export class Boid {
@@ -106,21 +106,31 @@ export class Boid {
             // direction vector in local space
             const dir = Vector.fromAngle(angle);
 
-            // test intersection with each food in world coords, converting to boid-local coords
+            // test intersection with each food in world coords, considering border wrapping
             let hit = false;
             for (let food of foods) {
-                // vector from boid center to food in world coords
-                const toFoodWorld = food.position.copy().sub(this.position);
-                // rotate into boid-local coords
-                const toFoodLocal = toFoodWorld.copy().rotate(-this.orientation);
-                const proj = toFoodLocal.dot(dir);
-                if (proj > 0 && proj < SENSOR_LENGTH) {
-                    const perpDist = Math.abs(toFoodLocal.cross(dir));
-                    if (perpDist < food.radius) {
-                        hit = true;
-                        break;
+                // Check all 9 possible wrapped positions (original + 8 neighbors)
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        // Compute wrapped food position
+                        const fx = food.position.x + dx * ctx.canvas.width;
+                        const fy = food.position.y + dy * ctx.canvas.height;
+                        // vector from boid center to food in world coords
+                        const toFoodWorld = new Vector(fx, fy).sub(this.position);
+                        // rotate into boid-local coords
+                        const toFoodLocal = toFoodWorld.copy().rotate(-this.orientation);
+                        const proj = toFoodLocal.dot(dir);
+                        if (proj > 0 && proj < SENSOR_LENGTH) {
+                            const perpDist = Math.abs(toFoodLocal.cross(dir));
+                            if (perpDist < food.radius) {
+                                hit = true;
+                                break;
+                            }
+                        }
                     }
+                    if (hit) break;
                 }
+                if (hit) break;
             }
 
             // draw the ray

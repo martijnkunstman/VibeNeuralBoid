@@ -4,9 +4,11 @@ import { World } from './World.js';
 // --- Setup ---
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize);
-resize();
+// function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+// window.addEventListener('resize', resize);
+// resize();
+canvas.width = 1000;
+canvas.height = 1000;
 
 const world = new World(canvas.width, canvas.height, ctx);
 const vehicle = new Boid(canvas.width / 2, canvas.height / 2);

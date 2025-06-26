@@ -13,8 +13,8 @@ canvas.height = 1000;
 // Create a neural canvas for the Boid's neural network visualization
 const neuralCanvas = document.getElementById('neuralCanvas');
 const neuralCtx = neuralCanvas.getContext('2d');
-neuralCanvas.width = 500;
-neuralCanvas.height = 500;
+neuralCanvas.width = 420;
+neuralCanvas.height = 360;
 
 const world = new World(canvas.width, canvas.height, ctx, neuralCtx);
 const boid = new Boid(canvas.width / 2, canvas.height / 2);

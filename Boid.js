@@ -214,7 +214,7 @@ export class Boid {
      */
     draw(ctx, foods = [], neuralCtx) {
 
-        this.brain.draw(neuralCtx,0,0);
+        this.brain.draw(neuralCtx,20,20);
 
         ctx.save();
         ctx.translate(this.position.x, this.position.y);

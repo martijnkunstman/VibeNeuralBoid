@@ -3,11 +3,11 @@ import { NeuralNetwork } from './NeuralNetwork.js';
 
 // --- Sensor Configuration Constants ---
 // Total angular coverage of sensors (in radians)
-const SENSOR_TOTAL_ANGLE = Math.PI / 2;  // 90° total coverage
+const SENSOR_TOTAL_ANGLE = Math.PI / 4;  // 90° total coverage
 // Angle between adjacent sensor rays (in radians)
 const SENSOR_ANGLE_STEP = Math.PI / 16;  // ~11.25° between sensors
 // Reach of each sensor ray (in pixels)
-const SENSOR_LENGTH = 500;
+const SENSOR_LENGTH = 400;
 
 // --- Boid Class ---
 export class Boid {
@@ -32,8 +32,8 @@ export class Boid {
         this.steerDirection = 0;    // directional input accumulator
 
         this.brain = new NeuralNetwork(
-            9, // 9 sensor inputs
-            [8, 8], // hidden layers with 8 neurons each
+            5, // 9 sensor inputs
+            [7, 7], // hidden layers with 8 neurons each
             4 // 4 outputs: forward, brake, steer left, steer right
         );
 

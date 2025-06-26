@@ -8,15 +8,23 @@ export class World {
     this.neuralCtx = neuralCtx; // for neural network visualization
     this.boids = [];
     this.foods = [];
-    this.spawnFood(10); // spawn initial food
+    this.spawnFood(15); // spawn initial food
   }
 
-  spawnFood(count = 10) {
-    for (let i = 0; i < count; i++) {
-      this.foods.push(new Food(
-        Math.random() * this.width,
-        Math.random() * this.height
-      ));
+  spawnFood(count = 10, minDistance = 50) {
+    let attempts = 0;
+    for (let i = 0; i < count; ) {
+      let x = Math.random() * this.width;
+      let y = Math.random() * this.height;
+      let tooClose = this.foods.some(
+        food => Math.hypot(food.position.x - x, food.position.y - y) < minDistance
+      );
+      if (!tooClose) {
+        this.foods.push(new Food(x, y));
+        i++;
+      }
+      attempts++;
+      if (attempts > count * 100) break; // avoid infinite loop
     }
   }
 

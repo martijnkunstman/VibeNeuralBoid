@@ -33,8 +33,9 @@ export class Boid {
 
         this.brain = new NeuralNetwork(
             5, // 9 sensor inputs
-            [7, 7], // hidden layers with 8 neurons each
-            4 // 4 outputs: forward, brake, steer left, steer right
+            [6, 6], // hidden layers with 8 neurons each
+            //old 4 // 4 outputs: forward, steer left, steer right, brake
+            3 // 3 outputs: forward, steer left, steer right
         );
 
         // input state
@@ -62,9 +63,9 @@ export class Boid {
         const outputs = this.brain.feedForward(inputs);
         // outputs is [a, b, c, d] in (0,1)
         this.keys.w = outputs[0] > 0.5;  // accelerate
-        this.keys.s = outputs[1] > 0.5;  // brake
-        this.keys.a = outputs[2] > 0.5;  // steer left
-        this.keys.d = outputs[3] > 0.5;  // steer right
+        this.keys.a = outputs[1] > 0.5;  // steer left
+        this.keys.d = outputs[2] > 0.5;  // steer right
+                //this.keys.s = outputs[1] > 0.5;  // brake
 
         // handle acceleration/braking
         if (this.keys['w']) {

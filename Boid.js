@@ -251,10 +251,10 @@ export class Boid {
         ctx.stroke();
 
         // Draw input indicators
-        if (this.keys['w']) { ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#ff0'; ctx.fill(); }
-        if (this.keys['s']) { ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f00'; ctx.fill(); }
-        if (this.keys['a']) { ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); }
-        if (this.keys['d']) { ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f0f'; ctx.fill(); }
+        if (this.keys['w']) { ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0000ff'; ctx.fill(); }
+        if (this.keys['s']) { ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0000ff'; ctx.fill(); }
+        if (this.keys['a']) { ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0000ff'; ctx.fill(); }
+        if (this.keys['d']) { ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0000ff'; ctx.fill(); }
 
         // Draw sensors on top, highlighting hits
         this.drawSensors(ctx, foods);

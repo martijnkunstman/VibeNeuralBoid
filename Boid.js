@@ -1,17 +1,26 @@
 import { Vector } from './Vector.js';
-// --- Boid Class 
+
+// --- Sensor Configuration Constants ---
+// Total angular coverage of sensors (in radians)
+const SENSOR_TOTAL_ANGLE = Math.PI;  // 180° total coverage
+// Angle between adjacent sensor rays (in radians)
+const SENSOR_ANGLE_STEP = Math.PI / 16;  // ~11.25° between sensors
+// Reach of each sensor ray (in pixels)
+const SENSOR_LENGTH = 200;
+
+// --- Boid Class ---
 export class Boid {
     constructor(x, y, radius = 15) {
         // state
         this.position = new Vector(x, y);
         this.orientation = 0;    // radians
-        this.speed = 0;          // px/sec'
+        this.speed = 0;          // px/sec
         this.radius = radius;
-        this.lifespan = 5000;     // lifespan in seconds
+        this.lifespan = 5000;    // lifespan in seconds
 
         // configurable properties
         this.wheelBase = 40;        // distance between axles
-        this.maxSteer = Math.PI / 4;  // max wheel angle
+        this.maxSteer = Math.PI / 4; // max wheel angle
         this.engineForce = 300;     // accel force
         this.brakeForce = 400;      // braking force
         this.drag = 0.02;           // linear drag coefficient
@@ -36,13 +45,12 @@ export class Boid {
     }
 
     update(dt) {
-
         this.lifespan -= 1;
-
         if (this.lifespan <= 0) {
             this.dead = true;
             return;
         }
+
         // handle acceleration/braking
         if (this.keys['w']) {
             this.speed += this.engineForce * dt;
@@ -51,33 +59,19 @@ export class Boid {
             this.speed -= this.brakeForce * dt;
         }
 
-        // apply drag
+        // apply drag and clamp speed
         this.speed -= this.speed * this.drag;
-
-        // clamp speed
         this.speed = Math.max(0, Math.min(this.speed, this.maxSpeed));
 
-        // steering input
+        // steering input accumulation
         if (this.keys['a']) this.steerDirection -= this.maxSteer / 10;
         if (this.keys['d']) this.steerDirection += this.maxSteer / 10;
-
-        // clamp input accumulator
         this.steerDirection = Math.max(-this.maxSteer, Math.min(this.steerDirection, this.maxSteer));
-
-        // damp if both pressed
-        if (this.keys['a'] && this.keys['d']) {
-            this.steerDirection *= 0.8;
-        }
-
-        // update steering angle
+        if (this.keys['a'] && this.keys['d']) this.steerDirection *= 0.8;
         this.steer += this.steerDirection;
         this.steer = Math.max(-this.maxSteer, Math.min(this.steer, this.maxSteer));
-
-        // gradual return to center when no input
         this.steer *= 0.8;
-        if (!this.keys['a'] && !this.keys['d']) {
-            this.steerDirection = 0;
-        }
+        if (!this.keys['a'] && !this.keys['d']) this.steerDirection = 0;
 
         // update orientation based on kinematic bicycle model
         if (this.speed > 0) {
@@ -97,12 +91,34 @@ export class Boid {
         if (this.position.y > world.height + this.radius) this.position.y = -this.radius;
     }
 
+    // Draw sensor rays emanating from the front of the boid
+    drawSensors(ctx) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+
+        const rayCount = Math.floor(SENSOR_TOTAL_ANGLE / SENSOR_ANGLE_STEP) + 1;
+        const startAngle = -SENSOR_TOTAL_ANGLE / 2;
+        for (let i = 0; i < rayCount; i++) {
+            const angle = startAngle + i * SENSOR_ANGLE_STEP;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(
+                SENSOR_LENGTH * Math.cos(angle),
+                SENSOR_LENGTH * Math.sin(angle)
+            );
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
     draw(ctx) {
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.orientation);
 
-        // Draw boid as a circle
+        // Draw boid body
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, 2 * Math.PI);
         ctx.fillStyle = '#0f0';
@@ -111,61 +127,50 @@ export class Boid {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Draw velocity as a line
+        // Draw velocity vector
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.strokeStyle = '#00f';
         ctx.lineWidth = 2;
-        ctx.lineTo(this.speed * 0.2, 0); // scale velocity for visibility
+        ctx.lineTo(this.speed * 0.2, 0);
         ctx.stroke();
 
-        // Draw steering direction as a line
-        const steerLineLength = this.speed * 0.2;
+        // Draw steering vector
+        const steerLen = this.speed * 0.2;
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.strokeStyle = '#f0f';
         ctx.lineWidth = 2;
-        ctx.lineTo(steerLineLength * Math.cos(this.steer), steerLineLength * Math.sin(this.steer));
+        ctx.lineTo(
+            steerLen * Math.cos(this.steer),
+            steerLen * Math.sin(this.steer)
+        );
         ctx.stroke();
 
-        // Visualize input around boid
-        // W (forward) - top
+        // Draw input indicators (W, A, S, D)
         if (this.keys['w']) {
-            ctx.beginPath();
-            ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ff0';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#ff0'; ctx.fill();
         }
-        // S (brake) - bottom
         if (this.keys['s']) {
-            ctx.beginPath();
-            ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = '#f00';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f00'; ctx.fill();
         }
-        // A (left) - left
         if (this.keys['a']) {
-            ctx.beginPath();
-            ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = '#0ff';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
         }
-        // D (right) - right
         if (this.keys['d']) {
-            ctx.beginPath();
-            ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = '#f0f';
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f0f'; ctx.fill();
         }
 
-        // Show lifespan as a number, horizontally centered above the circle, not rotated
+        // Draw sensors on top of boid
+        this.drawSensors(ctx);
+
+        // Draw lifespan text unrotated
         ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to avoid rotation/translation
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = '#000';
         ctx.font = '12px Arial';
         const text = Math.round(this.lifespan).toString();
         const textWidth = ctx.measureText(text).width;
-        // Calculate screen position of text
         const screenX = this.position.x - textWidth / 2;
         const screenY = this.position.y - this.radius - 14;
         ctx.fillText(text, screenX, screenY);

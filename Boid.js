@@ -1,4 +1,5 @@
 import { Vector } from './Vector.js';
+import { NeuralNetwork } from './NeuralNetwork.js';
 
 // --- Sensor Configuration Constants ---
 // Total angular coverage of sensors (in radians)
@@ -30,6 +31,12 @@ export class Boid {
         this.steer = 0;             // current steering angle
         this.steerDirection = 0;    // directional input accumulator
 
+        this.brain = new NeuralNetwork(
+            9, // 9 sensor inputs
+            [8, 8], // hidden layers with 8 neurons each
+            4 // 4 outputs: forward, brake, steer left, steer right
+        );
+
         // input state
         this.keys = { w: false, a: false, s: false, d: false };
         window.addEventListener('keydown', e => {
@@ -44,12 +51,20 @@ export class Boid {
         this.lifespan += food.nutrition;
     }
 
-    update(dt) {
+    update(dt, food) {
         this.lifespan -= 1;
         if (this.lifespan <= 0) {
             this.dead = true;
             return;
         }
+
+        const inputs = this.getSensorData(food);
+        const outputs = this.brain.feedForward(inputs);
+        // outputs is [a, b, c, d] in (0,1)
+        this.keys.w = outputs[0] > 0.5;  // accelerate
+        this.keys.s = outputs[1] > 0.5;  // brake
+        this.keys.a = outputs[2] > 0.5;  // steer left
+        this.keys.d = outputs[3] > 0.5;  // steer right
 
         // handle acceleration/braking
         if (this.keys['w']) {
@@ -90,6 +105,43 @@ export class Boid {
         if (this.position.y < -this.radius) this.position.y = world.height + this.radius;
         if (this.position.y > world.height + this.radius) this.position.y = -this.radius;
     }
+
+    /**
+     * Get sensor data as an array of distances to the nearest food item in each sensor direction
+     * @param {Food[]} foods - array of food objects with position (Vector) and radius
+     * @returns {number[]} array of distances normalized to [0, 1]
+     * @description
+     * This method computes the distance from the boid to the nearest food item in each sensor direction.
+     * It considers the wrapping of the world by checking all 9 possible positions of each food item
+     * (original position and 8 neighbors in a toroidal world).         
+     * The distances are normalized to the range [0, 1] based on SENSOR_LENGTH.
+     */
+
+    getSensorData(foods) {
+        const data = [];
+        const rayCount = Math.floor(SENSOR_TOTAL_ANGLE / SENSOR_ANGLE_STEP) + 1;
+        const startAngle = -SENSOR_TOTAL_ANGLE / 2;
+        for (let i = 0; i < rayCount; i++) {
+            const angle = startAngle + i * SENSOR_ANGLE_STEP;
+            let minDist = SENSOR_LENGTH;
+            // same wrapping logic as drawSensors, but compute actual proj distance:
+            for (let food of foods) {
+                for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+                    const fx = food.position.x + dx * 1000;
+                    const fy = food.position.y + dy * 1000;
+                    const toF = new Vector(fx, fy).sub(this.position).rotate(-this.orientation);
+                    const proj = toF.dot(Vector.fromAngle(angle));
+                    if (proj > 0 && proj < minDist) {
+                        const perp = Math.abs(toF.cross(Vector.fromAngle(angle)));
+                        if (perp < food.radius) minDist = proj;
+                    }
+                }
+            }
+            data.push(minDist / SENSOR_LENGTH); // normalize [0,1]
+        }
+        return data;
+    }
+
 
     /**
      * Draw sensor rays, highlighting those that intersect food items.
@@ -160,7 +212,10 @@ export class Boid {
      * @param {CanvasRenderingContext2D} ctx
      * @param {Food[]} foods
      */
-    draw(ctx, foods = []) {
+    draw(ctx, foods = [], neuralCtx) {
+
+        this.brain.draw(neuralCtx,0,0);
+
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.orientation);
@@ -195,10 +250,10 @@ export class Boid {
         ctx.stroke();
 
         // Draw input indicators
-        if (this.keys['w']) { ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#ff0'; ctx.fill(); }
-        if (this.keys['s']) { ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#f00'; ctx.fill(); }
-        if (this.keys['a']) { ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); }
-        if (this.keys['d']) { ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2*Math.PI); ctx.fillStyle = '#f0f'; ctx.fill(); }
+        if (this.keys['w']) { ctx.beginPath(); ctx.arc(this.radius + 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#ff0'; ctx.fill(); }
+        if (this.keys['s']) { ctx.beginPath(); ctx.arc(-this.radius - 8, 0, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f00'; ctx.fill(); }
+        if (this.keys['a']) { ctx.beginPath(); ctx.arc(0, -this.radius - 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); }
+        if (this.keys['d']) { ctx.beginPath(); ctx.arc(0, this.radius + 8, 4, 0, 2 * Math.PI); ctx.fillStyle = '#f0f'; ctx.fill(); }
 
         // Draw sensors on top, highlighting hits
         this.drawSensors(ctx, foods);

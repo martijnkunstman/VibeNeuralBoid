@@ -1,10 +1,11 @@
 import { Food } from './Food.js';
 
 export class World {
-  constructor(width, height, ctx) {
+  constructor(width, height, ctx, neuralCtx) {
     this.width = width;
     this.height = height;
     this.ctx = ctx;
+    this.neuralCtx = neuralCtx; // for neural network visualization
     this.boids = [];
     this.foods = [];
     this.spawnFood(10); // spawn initial food
@@ -32,7 +33,7 @@ export class World {
         }
         return true;
       });
-      boid.update(dt);
+      boid.update(dt, this.foods);
       boid.edges(this);
     });
   }
@@ -40,7 +41,7 @@ export class World {
   draw() {
     this.ctx.clearRect(0, 0, this.width, this.height);
     this.foods.forEach(f => f.draw(this.ctx));
-    this.boids.forEach(b => b.draw(this.ctx, this.foods));
+    this.boids.forEach(b => b.draw(this.ctx, this.foods, this.neuralCtx));
   }
 
 }
